@@ -25,7 +25,7 @@ usage () {
 }
 
 remove_newlines () {
-	while IFS= read line; do
+	while IFS= read line || [ -n "$line" ]; do
 		printf '%s' "$line"
 	done
 }
