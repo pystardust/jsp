@@ -4,6 +4,8 @@
 # dependencies (POSIX): sed
 # contact: { "github": "pystardust", "email": "notpiestardust@gmail.com" }
 
+indent_string='  '
+
 usage () {
 	while IFS= read line; do
 		printf '%s\n' "$line"
@@ -69,9 +71,10 @@ pick_key () {
 				;;
 			*)
 				[ $child -eq 0 ] &&
+					# remove the quotes for the key
 					skey=${line#\"}
 					skey=${skey%\"}
-					[ "${skey#\"}" = "$filter" ] &&
+					[ "$skey" = "$filter" ] &&
 					print_child
 				;;
 		esac
@@ -84,6 +87,7 @@ j_decode () {
 
 		:loop
 		/"/{
+			# prefix strings with --->
 			s/"/\n--->/
 			s/"/\n/
 			b loop
@@ -97,29 +101,45 @@ j_decode () {
 			s/:/\n<child>\n/g
 		}
 		/^--->/{
+			# add quotes to strings
 			s/--->(.*)/"\1"/
 		}
 	' | sed -E '
 		/^\s*$/d
 		/^("|<)/!{
-			s/\s*//g
+			# remove trailing spaces for non quoted objects
+			s/^\s*//
+			s/\s*$//
 		}
 	'
 }
 
+put_indent () {
+	_i=$1
+	while [ $_i -ne 0 ]; do
+		printf "$indent_string"
+		: $((_i-=1))
+	done
+}
 to_json () {
 	if [ $close_child -eq 1 ]; then
 		if [ ! "$1" = '</bracket>' ]; then
-			printf ','
+			printf ',\n'
+			put_indent $indent
 		fi
 		close_child=0
 	fi
 
 	case $1 in
 		'<bracket>')
-			printf '{'
+			printf '{\n'
+			: $((indent+=1))
+			put_indent $indent
 			;;
 		'</bracket>')
+			: $((indent-=1))
+			printf '\n'
+			put_indent $indent
 			printf '}'
 			;;
 		'<child>')
@@ -137,6 +157,7 @@ to_json () {
 
 j_encode () {
 	close_child=0
+	indent=0
 	while IFS= read line; do
 		to_json "$line"
 	done
